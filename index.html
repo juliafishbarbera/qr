@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>QR Code Generator</title>
+    <script src="qrcode.min.js"></script>
+    <script src="script.js"></script>
+    <link rel="stylesheet" href="stylesheet.css">
+  </head>
+  <body>
+    <button class="dark-mode-toggle" onclick="toggleDarkMode()">Dark Mode</button>
+    
+    <h1>QR Code Generator</h1>
+    <p>Enter text or URL to generate a QR code.</p>
+    
+    <div>
+      <input
+        id="text"
+        type="text"
+        value="https://fishcat.fish/"
+      />
+      <select id="correctionLevel">
+        <option value="L">Low (L)</option>
+        <option value="M">Medium (M)</option>
+        <option value="Q">Quartile (Q)</option>
+        <option value="H">High (H)</option>
+        <option value="AUTO" selected>Auto</option>
+      </select>
+    </div>
+    
+    <div id="qrcode"></div>
+    
+    <div>
+      <p>Version: <span id="qrVersion">-</span> | Modules: <span id="qrModules">-</span></p>
+    </div>
+    
+    <hr>
+    
+    <div>
+      <button id="downloadPng">Download PNG</button>
+      <button id="downloadSvg">Download SVG</button>
+    </div>
+  </body>
+</html>
