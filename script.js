@@ -5,6 +5,13 @@ document.addEventListener("DOMContentLoaded", function() {
     document.querySelector('.dark-mode-toggle').textContent = 'Light Mode';
   }
   var currentQRCode = null;
+  var defaultQrOptions = {
+    colorDark: '#000000',
+    colorLight: '#ffffff',
+    moduleShape: 'square',
+    size: 256,
+    transparentBackground: false
+  };
   var qrMeasureContainer = document.createElement('div');
   qrMeasureContainer.style.position = 'absolute';
   qrMeasureContainer.style.visibility = 'hidden';
@@ -13,12 +20,32 @@ document.addEventListener("DOMContentLoaded", function() {
   qrMeasureContainer.style.overflow = 'hidden';
   document.body.appendChild(qrMeasureContainer);
   var qrOptions = {
-    colorDark: '#000000',
-    colorLight: '#ffffff',
-    moduleShape: 'square',
-    size: 256,
-    transparentBackground: false
+    colorDark: defaultQrOptions.colorDark,
+    colorLight: defaultQrOptions.colorLight,
+    moduleShape: defaultQrOptions.moduleShape,
+    size: defaultQrOptions.size,
+    transparentBackground: defaultQrOptions.transparentBackground
   };
+
+  function updateResetAdvancedVisibility() {
+    var resetButton = document.getElementById('resetAdvanced');
+    var isDirty = qrOptions.colorDark !== defaultQrOptions.colorDark ||
+      qrOptions.colorLight !== defaultQrOptions.colorLight ||
+      qrOptions.moduleShape !== defaultQrOptions.moduleShape ||
+      qrOptions.size !== defaultQrOptions.size ||
+      qrOptions.transparentBackground !== defaultQrOptions.transparentBackground;
+
+    resetButton.hidden = !isDirty;
+  }
+
+  function resetAdvancedOptions() {
+    document.getElementById('foregroundColor').value = defaultQrOptions.colorDark;
+    document.getElementById('backgroundColor').value = defaultQrOptions.colorLight;
+    document.getElementById('moduleShape').value = defaultQrOptions.moduleShape;
+    document.getElementById('qrSize').value = String(defaultQrOptions.size);
+    document.getElementById('transparentBackground').checked = defaultQrOptions.transparentBackground;
+    makeCode();
+  }
 
   function syncOptionsFromControls() {
     qrOptions.colorDark = document.getElementById('foregroundColor').value;
@@ -26,6 +53,14 @@ document.addEventListener("DOMContentLoaded", function() {
     qrOptions.moduleShape = document.getElementById('moduleShape').value;
     qrOptions.size = parseInt(document.getElementById('qrSize').value, 10);
     qrOptions.transparentBackground = document.getElementById('transparentBackground').checked;
+  }
+
+  function updateUrlWarning(text) {
+    var warning = document.getElementById('urlWarning');
+    var hasHttpProtocol = /^https?:\/\//i.test(text);
+    var looksLikeDomain = /(?:^|\s|\()([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}(?=[:/\s)|]|$)/i.test(text.trim());
+
+    warning.hidden = hasHttpProtocol || !looksLikeDomain;
   }
 
   function renderCustomSvg(qrData) {
@@ -122,6 +157,8 @@ document.addEventListener("DOMContentLoaded", function() {
     var elText = document.getElementById("text");
     var correctionLevel = document.getElementById("correctionLevel").value;
     syncOptionsFromControls();
+    updateResetAdvancedVisibility();
+    updateUrlWarning(elText.value);
     
     if (correctionLevel === 'AUTO') {
       correctionLevel = findOptimalCorrectionLevel(elText.value);
@@ -193,6 +230,7 @@ document.addEventListener("DOMContentLoaded", function() {
   document.getElementById('backgroundColor').addEventListener('input', makeCode);
   document.getElementById('qrSize').addEventListener('change', makeCode);
   document.getElementById('transparentBackground').addEventListener('change', makeCode);
+  document.getElementById('resetAdvanced').addEventListener('click', resetAdvancedOptions);
 
   function downloadPng() {
     var svgString = getSerializedSvg();

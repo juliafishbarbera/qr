@@ -27,6 +27,9 @@
         <option value="AUTO" selected>Auto</option>
       </select>
     </div>
+    <p id="urlWarning" class="input-warning" hidden>
+      This looks like a website. Add `https://` if you want scanners to open it as a URL.
+    </p>
 
     <details class="advanced-options">
       <summary>Advanced</summary>
@@ -60,6 +63,9 @@
           <input id="transparentBackground" type="checkbox" />
           <span>Transparent background</span>
         </label>
+        <div class="advanced-options__actions">
+          <button id="resetAdvanced" type="button" hidden>Reset</button>
+        </div>
       </div>
     </details>
     

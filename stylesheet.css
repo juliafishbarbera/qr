@@ -4,6 +4,7 @@ body {
   --text-color: #755e4c;
   --accent-color: #ffa3db;
   --accent-secondary-color: #ffcaee;
+  --warning-color: #b11e5d;
   --surface-color: #fff7fd;
   --border-color: #ffcaee;
   --hover-color: #ffa3db;
@@ -23,6 +24,7 @@ body.dark-mode {
   --text-color: #99816e;
   --accent-color: #f45fb0;
   --accent-secondary-color: #ae1173;
+  --warning-color: #ff6fbe;
   --surface-color: #170907;
   --border-color: #ae1173;
   --hover-color: #f45fb0;
@@ -70,6 +72,12 @@ body.dark-mode input[type="text"] {
   border-color: var(--border-color);
   background-color: var(--surface-color);
   color: var(--title-color);
+}
+
+.input-warning {
+  margin: 8px 0 0;
+  color: var(--warning-color);
+  font-size: 13px;
 }
 
 select {
@@ -147,6 +155,14 @@ body.dark-mode input[type="color"] {
 
 .advanced-options__checkbox span {
   font-size: 14px;
+}
+
+.advanced-options__actions {
+  grid-column: 1 / -1;
+}
+
+#resetAdvanced[hidden] {
+  display: none;
 }
 
 button {
