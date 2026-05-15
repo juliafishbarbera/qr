@@ -27,6 +27,41 @@
         <option value="AUTO" selected>Auto</option>
       </select>
     </div>
+
+    <details class="advanced-options">
+      <summary>Advanced</summary>
+      <div class="advanced-options__grid">
+        <label>
+          <span>Module shape</span>
+          <select id="moduleShape">
+            <option value="square" selected>Squares</option>
+            <option value="circle">Circles</option>
+          </select>
+        </label>
+        <label>
+          <span>Foreground color</span>
+          <input id="foregroundColor" type="color" value="#000000" />
+        </label>
+        <label>
+          <span>Background color</span>
+          <input id="backgroundColor" type="color" value="#ffffff" />
+        </label>
+        <label>
+          <span>Output size</span>
+          <select id="qrSize">
+            <option value="192">192 px</option>
+            <option value="256" selected>256 px</option>
+            <option value="320">320 px</option>
+            <option value="384">384 px</option>
+            <option value="512">512 px</option>
+          </select>
+        </label>
+        <label class="advanced-options__checkbox">
+          <input id="transparentBackground" type="checkbox" />
+          <span>Transparent background</span>
+        </label>
+      </div>
+    </details>
     
     <div id="qrcode"></div>
     

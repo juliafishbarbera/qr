@@ -5,10 +5,123 @@ document.addEventListener("DOMContentLoaded", function() {
     document.querySelector('.dark-mode-toggle').textContent = 'Light Mode';
   }
   var currentQRCode = null;
+  var qrMeasureContainer = document.createElement('div');
+  qrMeasureContainer.style.position = 'absolute';
+  qrMeasureContainer.style.visibility = 'hidden';
+  qrMeasureContainer.style.width = '0';
+  qrMeasureContainer.style.height = '0';
+  qrMeasureContainer.style.overflow = 'hidden';
+  document.body.appendChild(qrMeasureContainer);
+  var qrOptions = {
+    colorDark: '#000000',
+    colorLight: '#ffffff',
+    moduleShape: 'square',
+    size: 256,
+    transparentBackground: false
+  };
+
+  function syncOptionsFromControls() {
+    qrOptions.colorDark = document.getElementById('foregroundColor').value;
+    qrOptions.colorLight = document.getElementById('backgroundColor').value;
+    qrOptions.moduleShape = document.getElementById('moduleShape').value;
+    qrOptions.size = parseInt(document.getElementById('qrSize').value, 10);
+    qrOptions.transparentBackground = document.getElementById('transparentBackground').checked;
+  }
+
+  function renderCustomSvg(qrData) {
+    var container = document.getElementById('qrcode');
+    var moduleCount = qrData.getModuleCount();
+    var pieces = [];
+    var x;
+    var y;
+
+    container.style.width = qrOptions.size + 'px';
+    container.style.height = qrOptions.size + 'px';
+    container.innerHTML = '';
+
+    pieces.push(
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + moduleCount + ' ' + moduleCount + '" width="100%" height="100%">'
+    );
+
+    if (!qrOptions.transparentBackground) {
+      pieces.push(
+        '<rect width="' + moduleCount + '" height="' + moduleCount + '" fill="' + qrOptions.colorLight + '"/>'
+      );
+    }
+
+    if (qrOptions.moduleShape === 'circle') {
+      for (y = 0; y < moduleCount; y++) {
+        for (x = 0; x < moduleCount; x++) {
+          if (qrData.isDark(y, x)) {
+            pieces.push(
+              '<circle cx="' + (x + 0.5) + '" cy="' + (y + 0.5) + '" r="0.45" fill="' + qrOptions.colorDark + '"/>'
+            );
+          }
+        }
+      }
+    } else {
+      for (y = 0; y < moduleCount; y++) {
+        for (x = 0; x < moduleCount; x++) {
+          if (qrData.isDark(y, x)) {
+            pieces.push(
+              '<rect x="' + x + '" y="' + y + '" width="1" height="1" fill="' + qrOptions.colorDark + '"/>'
+            );
+          }
+        }
+      }
+    }
+
+    pieces.push('</svg>');
+    container.innerHTML = pieces.join('');
+  }
+
+  function buildQRCodeData(text, correctLevel) {
+    qrMeasureContainer.innerHTML = '';
+    currentQRCode = new QRCode(qrMeasureContainer, {
+      text: text,
+      correctLevel: QRCode.CorrectLevel[correctLevel],
+      width: qrOptions.size,
+      height: qrOptions.size,
+      colorDark: qrOptions.colorDark,
+      colorLight: qrOptions.colorLight,
+      useSVG: true
+    });
+
+    return currentQRCode._oQRCode;
+  }
+
+  function downloadDataUrl(filename, dataUrl) {
+    var link = document.createElement('a');
+    link.download = filename;
+    link.href = dataUrl;
+    link.click();
+  }
+
+  function getSerializedSvg() {
+    var svg = document.querySelector('#qrcode svg');
+    if (!svg) {
+      return null;
+    }
+
+    return new XMLSerializer().serializeToString(svg);
+  }
+
+  function downloadSvgString(svgString, filename) {
+    var blob = new Blob([svgString], {type: 'image/svg+xml'});
+    var url = URL.createObjectURL(blob);
+    var link = document.createElement('a');
+    link.download = filename;
+    link.href = url;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
   
   function makeCode() {
     var elText = document.getElementById("text");
     var correctionLevel = document.getElementById("correctionLevel").value;
+    syncOptionsFromControls();
     
     if (correctionLevel === 'AUTO') {
       correctionLevel = findOptimalCorrectionLevel(elText.value);
@@ -23,21 +136,8 @@ document.addEventListener("DOMContentLoaded", function() {
       autoOption.text = 'Auto';
     }
     
-    if (!currentQRCode) {
-      // Create QR code on first run
-      currentQRCode = new QRCode(document.getElementById("qrcode"), {
-        correctLevel: QRCode.CorrectLevel[correctionLevel],
-        width: 256,
-        height: 256,
-        useSVG: true
-      });
-    } else {
-      // Update correction level if changed
-      currentQRCode._htOption.correctLevel = QRCode.CorrectLevel[correctionLevel];
-    }
-    
-    // Update the existing QR code
-    currentQRCode.makeCode(elText.value);
+    var qrData = buildQRCodeData(elText.value, correctionLevel);
+    renderCustomSvg(qrData);
     
     // Update version and module info
     updateQRInfo(currentQRCode);
@@ -65,30 +165,13 @@ document.addEventListener("DOMContentLoaded", function() {
   }
   
   function getRequiredVersion(text, correctionLevel) {
-    // Create a temporary QR code to determine required version
-    var tempContainer = document.createElement('div');
-    tempContainer.style.position = 'absolute';
-    tempContainer.style.visibility = 'hidden';
-    tempContainer.style.width = '0';
-    tempContainer.style.height = '0';
-    document.body.appendChild(tempContainer);
-    
-    var tempQR = new QRCode(tempContainer, {
-      correctLevel: QRCode.CorrectLevel[correctionLevel],
-      width: 256,
-      height: 256,
-      useSVG: true
-    });
-    
-    tempQR.makeCode(text);
+    var tempQR = buildQRCodeData(text, correctionLevel);
     
     var version = 1; // default
-    if (tempQR._oQRCode) {
-      version = tempQR._oQRCode.typeNumber;
+    if (tempQR) {
+      version = tempQR.typeNumber;
     }
-    
-    document.body.removeChild(tempContainer);
-    
+
     return version;
   }
 
@@ -105,30 +188,44 @@ document.addEventListener("DOMContentLoaded", function() {
 
   var correctionSelect = document.getElementById("correctionLevel");
   correctionSelect.addEventListener("change", makeCode);
+  document.getElementById('moduleShape').addEventListener('change', makeCode);
+  document.getElementById('foregroundColor').addEventListener('input', makeCode);
+  document.getElementById('backgroundColor').addEventListener('input', makeCode);
+  document.getElementById('qrSize').addEventListener('change', makeCode);
+  document.getElementById('transparentBackground').addEventListener('change', makeCode);
 
   function downloadPng() {
-    var canvas = document.querySelector("#qrcode canvas");
-    if (canvas) {
-      var link = document.createElement("a");
-      link.download = "qrcode.png";
-      link.href = canvas.toDataURL();
-      link.click();
+    var svgString = getSerializedSvg();
+    if (svgString) {
+      var image = new Image();
+      var blob = new Blob([svgString], {type: 'image/svg+xml'});
+      var url = URL.createObjectURL(blob);
+
+      image.onload = function() {
+        var canvas = document.createElement('canvas');
+        var context = canvas.getContext('2d');
+
+        canvas.width = qrOptions.size;
+        canvas.height = qrOptions.size;
+
+        if (!qrOptions.transparentBackground) {
+          context.fillStyle = qrOptions.colorLight;
+          context.fillRect(0, 0, canvas.width, canvas.height);
+        }
+
+        context.drawImage(image, 0, 0, canvas.width, canvas.height);
+        URL.revokeObjectURL(url);
+        downloadDataUrl('qrcode.png', canvas.toDataURL('image/png'));
+      };
+
+      image.src = url;
     }
   }
 
   function downloadSvg() {
-    var svg = document.querySelector("#qrcode svg");
-    if (svg) {
-      var svgString = new XMLSerializer().serializeToString(svg);
-      var blob = new Blob([svgString], {type: "image/svg+xml"});
-      var url = URL.createObjectURL(blob);
-      var link = document.createElement("a");
-      link.download = "qrcode.svg";
-      link.href = url;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+    var svgString = getSerializedSvg();
+    if (svgString) {
+      downloadSvgString(svgString, 'qrcode.svg');
     } else {
       // Fallback: generate SVG from canvas
       var canvas = document.querySelector("#qrcode canvas");
@@ -153,16 +250,7 @@ document.addEventListener("DOMContentLoaded", function() {
         }
         
         var svgString = '<svg xmlns="http://www.w3.org/2000/svg" width="' + canvas.width + '" height="' + canvas.height + '" viewBox="0 0 ' + canvas.width + ' ' + canvas.height + '">' + rects.join('') + '</svg>';
-        
-        var blob = new Blob([svgString], {type: "image/svg+xml"});
-        var url = URL.createObjectURL(blob);
-        var link = document.createElement("a");
-        link.download = "qrcode.svg";
-        link.href = url;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
+        downloadSvgString(svgString, 'qrcode.svg');
       }
     }
   }
