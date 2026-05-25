@@ -2,6 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>QR Code Generator</title>
     <script src="qrcode.min.js"></script>
     <script src="script.js"></script>
@@ -13,7 +14,7 @@
     <h1>QR Code Generator</h1>
     <p>Enter text or URL to generate a QR code.</p>
     
-    <div>
+    <div class="input-row">
       <input
         id="text"
         type="text"
@@ -71,13 +72,14 @@
     
     <div id="qrcode"></div>
     
-    <div>
+    <div class="qr-meta">
       <p>Version: <span id="qrVersion">-</span> | Modules: <span id="qrModules">-</span></p>
     </div>
     
     <hr>
     
-    <div>
+    <div class="download-actions">
+      <button id="copyPng">Copy PNG</button>
       <button id="downloadPng">Download PNG</button>
       <button id="downloadSvg">Download SVG</button>
     </div>

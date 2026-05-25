@@ -1,10 +1,28 @@
 document.addEventListener("DOMContentLoaded", function() {
-  // Check for saved dark mode preference
+  var textInput = document.getElementById('text');
+  var correctionSelect = document.getElementById('correctionLevel');
+  var moduleShapeSelect = document.getElementById('moduleShape');
+  var foregroundColorInput = document.getElementById('foregroundColor');
+  var backgroundColorInput = document.getElementById('backgroundColor');
+  var qrSizeSelect = document.getElementById('qrSize');
+  var transparentBackgroundInput = document.getElementById('transparentBackground');
+  var resetAdvancedButton = document.getElementById('resetAdvanced');
+  var urlWarning = document.getElementById('urlWarning');
+  var qrcodeContainer = document.getElementById('qrcode');
+  var qrVersion = document.getElementById('qrVersion');
+  var qrModules = document.getElementById('qrModules');
+  var copyPngButton = document.getElementById('copyPng');
+  var downloadPngButton = document.getElementById('downloadPng');
+  var downloadSvgButton = document.getElementById('downloadSvg');
+  var advancedOptions = document.querySelector('.advanced-options');
+  var downloadActions = document.querySelector('.download-actions');
+  var qrMeta = document.querySelector('.qr-meta');
+  var divider = document.querySelector('hr');
+
   if (localStorage.getItem('darkMode') === 'true') {
     document.body.classList.add('dark-mode');
     document.querySelector('.dark-mode-toggle').textContent = 'Light Mode';
   }
-  var currentQRCode = null;
   var defaultQrOptions = {
     colorDark: '#000000',
     colorLight: '#ffffff',
@@ -27,52 +45,70 @@ document.addEventListener("DOMContentLoaded", function() {
     transparentBackground: defaultQrOptions.transparentBackground
   };
 
+  function isMobileLayout() {
+    return window.matchMedia('(max-width: 700px)').matches;
+  }
+
+  function canSharePng() {
+    return isMobileLayout() && !!navigator.share && typeof File !== 'undefined';
+  }
+
+  function updateExportActionMode() {
+    var canCopyPng = !!navigator.clipboard && typeof ClipboardItem !== 'undefined';
+
+    if (canSharePng()) {
+      copyPngButton.hidden = false;
+      copyPngButton.textContent = 'Share PNG';
+      return;
+    }
+
+    copyPngButton.textContent = 'Copy PNG';
+    copyPngButton.hidden = !canCopyPng;
+  }
+
   function updateResetAdvancedVisibility() {
-    var resetButton = document.getElementById('resetAdvanced');
     var isDirty = qrOptions.colorDark !== defaultQrOptions.colorDark ||
       qrOptions.colorLight !== defaultQrOptions.colorLight ||
       qrOptions.moduleShape !== defaultQrOptions.moduleShape ||
       qrOptions.size !== defaultQrOptions.size ||
       qrOptions.transparentBackground !== defaultQrOptions.transparentBackground;
 
-    resetButton.hidden = !isDirty;
+    resetAdvancedButton.hidden = !isDirty;
   }
 
   function resetAdvancedOptions() {
-    document.getElementById('foregroundColor').value = defaultQrOptions.colorDark;
-    document.getElementById('backgroundColor').value = defaultQrOptions.colorLight;
-    document.getElementById('moduleShape').value = defaultQrOptions.moduleShape;
-    document.getElementById('qrSize').value = String(defaultQrOptions.size);
-    document.getElementById('transparentBackground').checked = defaultQrOptions.transparentBackground;
+    foregroundColorInput.value = defaultQrOptions.colorDark;
+    backgroundColorInput.value = defaultQrOptions.colorLight;
+    moduleShapeSelect.value = defaultQrOptions.moduleShape;
+    qrSizeSelect.value = String(defaultQrOptions.size);
+    transparentBackgroundInput.checked = defaultQrOptions.transparentBackground;
     makeCode();
   }
 
   function syncOptionsFromControls() {
-    qrOptions.colorDark = document.getElementById('foregroundColor').value;
-    qrOptions.colorLight = document.getElementById('backgroundColor').value;
-    qrOptions.moduleShape = document.getElementById('moduleShape').value;
-    qrOptions.size = parseInt(document.getElementById('qrSize').value, 10);
-    qrOptions.transparentBackground = document.getElementById('transparentBackground').checked;
+    qrOptions.colorDark = foregroundColorInput.value;
+    qrOptions.colorLight = backgroundColorInput.value;
+    qrOptions.moduleShape = moduleShapeSelect.value;
+    qrOptions.size = parseInt(qrSizeSelect.value, 10);
+    qrOptions.transparentBackground = transparentBackgroundInput.checked;
   }
 
   function updateUrlWarning(text) {
-    var warning = document.getElementById('urlWarning');
     var hasHttpProtocol = /^https?:\/\//i.test(text);
     var looksLikeDomain = /(?:^|\s|\()([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}(?=[:/\s)|]|$)/i.test(text.trim());
 
-    warning.hidden = hasHttpProtocol || !looksLikeDomain;
+    urlWarning.hidden = hasHttpProtocol || !looksLikeDomain;
   }
 
   function renderCustomSvg(qrData) {
-    var container = document.getElementById('qrcode');
     var moduleCount = qrData.getModuleCount();
     var pieces = [];
     var x;
     var y;
 
-    container.style.width = qrOptions.size + 'px';
-    container.style.height = qrOptions.size + 'px';
-    container.innerHTML = '';
+    qrcodeContainer.style.height = 'auto';
+    qrcodeContainer.style.maxWidth = '100%';
+    qrcodeContainer.innerHTML = '';
 
     pieces.push(
       '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + moduleCount + ' ' + moduleCount + '" width="100%" height="100%">'
@@ -107,12 +143,30 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     pieces.push('</svg>');
-    container.innerHTML = pieces.join('');
+    qrcodeContainer.innerHTML = pieces.join('');
+    updatePreviewSize();
+  }
+
+  function updatePreviewSize() {
+    var containerTop = qrcodeContainer.getBoundingClientRect().top;
+    var bodyStyles = window.getComputedStyle(document.body);
+    var viewportWidth = window.innerWidth;
+    var viewportHeight = window.innerHeight;
+    var availableWidth = Math.min(qrcodeContainer.parentElement.clientWidth, viewportWidth - 24);
+    var reservedHeight = downloadActions.offsetHeight + qrMeta.offsetHeight + divider.offsetHeight + 40;
+    var availableHeight = viewportHeight - containerTop - reservedHeight - (parseFloat(bodyStyles.paddingBottom) || 0);
+    var previewSize = Math.min(availableWidth, availableHeight, qrOptions.size);
+
+    if (!isFinite(previewSize) || previewSize <= 0) {
+      previewSize = Math.min(availableWidth, qrOptions.size);
+    }
+
+    qrcodeContainer.style.width = Math.max(140, previewSize) + 'px';
   }
 
   function buildQRCodeData(text, correctLevel) {
     qrMeasureContainer.innerHTML = '';
-    currentQRCode = new QRCode(qrMeasureContainer, {
+    var qrCode = new QRCode(qrMeasureContainer, {
       text: text,
       correctLevel: QRCode.CorrectLevel[correctLevel],
       width: qrOptions.size,
@@ -122,7 +176,7 @@ document.addEventListener("DOMContentLoaded", function() {
       useSVG: true
     });
 
-    return currentQRCode._oQRCode;
+    return qrCode._oQRCode;
   }
 
   function downloadDataUrl(filename, dataUrl) {
@@ -133,7 +187,7 @@ document.addEventListener("DOMContentLoaded", function() {
   }
 
   function getSerializedSvg() {
-    var svg = document.querySelector('#qrcode svg');
+    var svg = qrcodeContainer.querySelector('svg');
     if (!svg) {
       return null;
     }
@@ -154,30 +208,23 @@ document.addEventListener("DOMContentLoaded", function() {
   }
   
   function makeCode() {
-    var elText = document.getElementById("text");
-    var correctionLevel = document.getElementById("correctionLevel").value;
+    var text = textInput.value;
+    var correctionLevel = correctionSelect.value;
     syncOptionsFromControls();
     updateResetAdvancedVisibility();
-    updateUrlWarning(elText.value);
+    updateUrlWarning(text);
     
     if (correctionLevel === 'AUTO') {
-      correctionLevel = findOptimalCorrectionLevel(elText.value);
-      // Update display to show actual level being used
-      var select = document.getElementById("correctionLevel");
-      var autoOption = select.querySelector('option[value="AUTO"]');
+      var autoOption = correctionSelect.querySelector('option[value="AUTO"]');
+      correctionLevel = findOptimalCorrectionLevel(text);
       autoOption.text = 'Auto (' + correctionLevel + ')';
     } else {
-      // Reset auto option text
-      var select = document.getElementById("correctionLevel");
-      var autoOption = select.querySelector('option[value="AUTO"]');
-      autoOption.text = 'Auto';
+      correctionSelect.querySelector('option[value="AUTO"]').text = 'Auto';
     }
     
-    var qrData = buildQRCodeData(elText.value, correctionLevel);
+    var qrData = buildQRCodeData(text, correctionLevel);
     renderCustomSvg(qrData);
-    
-    // Update version and module info
-    updateQRInfo(currentQRCode);
+    updateQRInfo(qrData);
   }
   
   function findOptimalCorrectionLevel(text) {
@@ -214,50 +261,92 @@ document.addEventListener("DOMContentLoaded", function() {
 
   makeCode();
 
-  var textInput = document.getElementById("text");
-  textInput.addEventListener("input", makeCode);
-  textInput.addEventListener("blur", makeCode);
-  textInput.addEventListener("keydown", function (e) {
-    if (e.keyCode == 13) {
-      makeCode();
-    }
-  });
-
-  var correctionSelect = document.getElementById("correctionLevel");
-  correctionSelect.addEventListener("change", makeCode);
-  document.getElementById('moduleShape').addEventListener('change', makeCode);
-  document.getElementById('foregroundColor').addEventListener('input', makeCode);
-  document.getElementById('backgroundColor').addEventListener('input', makeCode);
-  document.getElementById('qrSize').addEventListener('change', makeCode);
-  document.getElementById('transparentBackground').addEventListener('change', makeCode);
-  document.getElementById('resetAdvanced').addEventListener('click', resetAdvancedOptions);
-
   function downloadPng() {
+    renderPngCanvas(function (canvas) {
+      downloadDataUrl('qrcode.png', canvas.toDataURL('image/png'));
+    });
+  }
+
+  function renderPngCanvas(callback) {
     var svgString = getSerializedSvg();
-    if (svgString) {
-      var image = new Image();
-      var blob = new Blob([svgString], {type: 'image/svg+xml'});
-      var url = URL.createObjectURL(blob);
+    if (!svgString) {
+      return;
+    }
 
-      image.onload = function() {
-        var canvas = document.createElement('canvas');
-        var context = canvas.getContext('2d');
+    var image = new Image();
+    var blob = new Blob([svgString], {type: 'image/svg+xml'});
+    var url = URL.createObjectURL(blob);
 
-        canvas.width = qrOptions.size;
-        canvas.height = qrOptions.size;
+    image.onload = function() {
+      var canvas = document.createElement('canvas');
+      var context = canvas.getContext('2d');
 
-        if (!qrOptions.transparentBackground) {
-          context.fillStyle = qrOptions.colorLight;
-          context.fillRect(0, 0, canvas.width, canvas.height);
+      canvas.width = qrOptions.size;
+      canvas.height = qrOptions.size;
+
+      if (!qrOptions.transparentBackground) {
+        context.fillStyle = qrOptions.colorLight;
+        context.fillRect(0, 0, canvas.width, canvas.height);
+      }
+
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(url);
+      callback(canvas);
+    };
+
+    image.src = url;
+  }
+
+  function copyPng() {
+    if (canSharePng()) {
+      sharePng();
+      return;
+    }
+
+    if (!navigator.clipboard || typeof ClipboardItem === 'undefined') {
+      return;
+    }
+
+    renderPngCanvas(function (canvas) {
+      canvas.toBlob(function (blob) {
+        if (!blob) {
+          return;
         }
 
-        context.drawImage(image, 0, 0, canvas.width, canvas.height);
-        URL.revokeObjectURL(url);
-        downloadDataUrl('qrcode.png', canvas.toDataURL('image/png'));
-      };
+        navigator.clipboard.write([
+          new ClipboardItem({'image/png': blob})
+        ]).catch(function () {
+        });
+      }, 'image/png');
+    });
+  }
 
-      image.src = url;
+  function sharePng() {
+    if (!canSharePng()) {
+      return;
     }
+
+    renderPngCanvas(function (canvas) {
+      canvas.toBlob(function (blob) {
+        var file;
+
+        if (!blob) {
+          return;
+        }
+
+        file = new File([blob], 'qrcode.png', {type: 'image/png'});
+
+        if (navigator.canShare && !navigator.canShare({files: [file]})) {
+          return;
+        }
+
+        navigator.share({
+          files: [file],
+          title: 'QR Code PNG'
+        }).catch(function () {
+        });
+      }, 'image/png');
+    });
   }
 
   function downloadSvg() {
@@ -266,7 +355,7 @@ document.addEventListener("DOMContentLoaded", function() {
       downloadSvgString(svgString, 'qrcode.svg');
     } else {
       // Fallback: generate SVG from canvas
-      var canvas = document.querySelector("#qrcode canvas");
+      var canvas = qrcodeContainer.querySelector('canvas');
       if (canvas) {
         var ctx = canvas.getContext("2d");
         var imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
@@ -293,18 +382,14 @@ document.addEventListener("DOMContentLoaded", function() {
     }
   }
 
-  function updateQRInfo(qrcode) {
-    // Get QR code version and module count from the internal data
-    if (qrcode._oQRCode) {
-      var version = qrcode._oQRCode.typeNumber;
-      var modules = qrcode._oQRCode.moduleCount;
-      document.getElementById("qrVersion").textContent = version;
-      document.getElementById("qrModules").textContent = modules + "×" + modules;
+  function updateQRInfo(qrData) {
+    if (qrData) {
+      qrVersion.textContent = qrData.typeNumber;
+      qrModules.textContent = qrData.moduleCount + '×' + qrData.moduleCount;
     } else {
-      // Fallback: try to determine from the rendered element
       setTimeout(function() {
-        var svg = document.querySelector("#qrcode svg");
-        var canvas = document.querySelector("#qrcode canvas");
+        var svg = qrcodeContainer.querySelector('svg');
+        var canvas = qrcodeContainer.querySelector('canvas');
         
         if (svg) {
           var viewBox = svg.getAttribute('viewBox');
@@ -313,22 +398,47 @@ document.addEventListener("DOMContentLoaded", function() {
             var width = parseInt(dimensions[2]);
             var version = Math.ceil((width - 17) / 4);
             var modules = version * 4 + 17;
-            document.getElementById("qrVersion").textContent = version;
-            document.getElementById("qrModules").textContent = modules + "×" + modules;
+            qrVersion.textContent = version;
+            qrModules.textContent = modules + '×' + modules;
           }
         } else if (canvas) {
           var modules = Math.floor(canvas.width / 8);
           var version = Math.ceil((modules - 17) / 4);
-          document.getElementById("qrVersion").textContent = version;
-          document.getElementById("qrModules").textContent = modules + "×" + modules;
+          qrVersion.textContent = version;
+          qrModules.textContent = modules + '×' + modules;
         }
       }, 100);
     }
   }
 
-  document.getElementById("downloadPng").addEventListener("click", downloadPng);
-  document.getElementById("downloadSvg").addEventListener("click", downloadSvg);
-});
+  downloadPngButton.addEventListener('click', downloadPng);
+  copyPngButton.addEventListener('click', copyPng);
+  downloadSvgButton.addEventListener('click', downloadSvg);
+  advancedOptions.addEventListener('toggle', updatePreviewSize);
+  window.addEventListener('resize', function () {
+    updatePreviewSize();
+    updateExportActionMode();
+  });
+
+  textInput.addEventListener('input', makeCode);
+  textInput.addEventListener('blur', makeCode);
+  textInput.addEventListener('keydown', function (e) {
+    if (e.keyCode == 13) {
+      makeCode();
+    }
+  });
+
+  correctionSelect.addEventListener('change', makeCode);
+  moduleShapeSelect.addEventListener('change', makeCode);
+  foregroundColorInput.addEventListener('input', makeCode);
+  backgroundColorInput.addEventListener('input', makeCode);
+  qrSizeSelect.addEventListener('change', makeCode);
+  transparentBackgroundInput.addEventListener('change', makeCode);
+  resetAdvancedButton.addEventListener('click', resetAdvancedOptions);
+
+  updateExportActionMode();
+  updateResetAdvancedVisibility();
+  });
 
 function toggleDarkMode() {
   var body = document.body;

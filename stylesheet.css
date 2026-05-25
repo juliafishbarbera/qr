@@ -16,6 +16,11 @@ body {
   background-color: var(--background-color);
   color: var(--text-color);
   transition: background-color 0.3s, color 0.3s;
+  overflow-x: hidden;
+}
+
+* {
+  box-sizing: border-box;
 }
 
 body.dark-mode {
@@ -40,10 +45,10 @@ h6 {
 }
 
 #qrcode {
-  width: 256px;
-  height: 256px;
-  max-width: 100%;
-  margin: 20px 0;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  max-width: min(100%, calc(100vw - 40px));
+  margin: 20px auto;
   border: 1px solid var(--border-color);
   transition: border-color 0.3s;
 }
@@ -58,8 +63,15 @@ body.dark-mode #qrcode {
   border-color: var(--border-color);
 }
 
+.input-row {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
 input[type="text"] {
-  width: 70%;
+  flex: 1 1 auto;
+  min-width: 0;
   padding: 8px;
   border: 1px solid var(--border-color);
   font-size: 14px;
@@ -81,6 +93,7 @@ body.dark-mode input[type="text"] {
 }
 
 select {
+  flex: 0 0 auto;
   padding: 8px;
   border: 1px solid var(--border-color);
   font-size: 14px;
@@ -161,6 +174,21 @@ body.dark-mode input[type="color"] {
   grid-column: 1 / -1;
 }
 
+.download-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.download-actions button {
+  margin-right: 0;
+  max-width: 100%;
+}
+
+.qr-meta {
+  overflow-wrap: anywhere;
+}
+
 #resetAdvanced[hidden] {
   display: none;
 }
@@ -224,4 +252,77 @@ body.dark-mode .dark-mode-toggle {
 
 body.dark-mode .dark-mode-toggle:hover {
   background-color: var(--hover-color);
+}
+
+@media (max-width: 700px) {
+  body {
+    margin: 20px auto;
+    padding: 0 16px 24px;
+  }
+
+  h1 {
+    margin-top: 72px;
+    font-size: 2.3rem;
+    line-height: 1.1;
+  }
+
+  .input-row {
+    flex-direction: column;
+  }
+
+  .input-row select,
+  .input-row input[type="text"] {
+    width: 100%;
+  }
+
+  .advanced-options__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .advanced-options__checkbox {
+    padding-top: 0;
+  }
+
+  .download-actions {
+    flex-direction: column;
+  }
+
+  .download-actions button {
+    width: 100%;
+  }
+
+  .dark-mode-toggle {
+    top: 12px;
+    right: 16px;
+    padding: 7px 10px;
+    max-width: calc(100vw - 32px);
+    display: none;
+  }
+}
+
+@media (max-width: 420px) {
+  body {
+    margin: 16px auto;
+    padding: 0 12px 20px;
+  }
+
+  h1 {
+    margin-top: 64px;
+    font-size: 2rem;
+  }
+
+  .advanced-options summary,
+  button,
+  input[type="text"],
+  select {
+    font-size: 16px;
+  }
+
+  .dark-mode-toggle {
+    font-size: 11px;
+  }
+
+  #qrcode {
+    max-width: calc(100vw - 24px);
+  }
 }
