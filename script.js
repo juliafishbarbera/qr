@@ -17,6 +17,7 @@ document.addEventListener("DOMContentLoaded", function() {
   var advancedOptions = document.querySelector('.advanced-options');
   var downloadActions = document.querySelector('.download-actions');
   var qrMeta = document.querySelector('.qr-meta');
+  var contactNote = document.querySelector('.contact-note');
   var divider = document.querySelector('hr');
 
   if (localStorage.getItem('darkMode') === 'true') {
@@ -45,6 +46,15 @@ document.addEventListener("DOMContentLoaded", function() {
     transparentBackground: defaultQrOptions.transparentBackground
   };
 
+  function getConfiguredExportSize() {
+    return qrSizeSelect.value === 'modules' ? 0 : parseInt(qrSizeSelect.value, 10);
+  }
+
+  function getPreviewTargetSize() {
+    return qrOptions.size > 0 ? qrOptions.size : defaultQrOptions.size;
+  }
+  var currentQrData = null;
+
   function isMobileLayout() {
     return window.matchMedia('(max-width: 700px)').matches;
   }
@@ -70,7 +80,7 @@ document.addEventListener("DOMContentLoaded", function() {
     var isDirty = qrOptions.colorDark !== defaultQrOptions.colorDark ||
       qrOptions.colorLight !== defaultQrOptions.colorLight ||
       qrOptions.moduleShape !== defaultQrOptions.moduleShape ||
-      qrOptions.size !== defaultQrOptions.size ||
+      qrSizeSelect.value !== String(defaultQrOptions.size) ||
       qrOptions.transparentBackground !== defaultQrOptions.transparentBackground;
 
     resetAdvancedButton.hidden = !isDirty;
@@ -89,7 +99,7 @@ document.addEventListener("DOMContentLoaded", function() {
     qrOptions.colorDark = foregroundColorInput.value;
     qrOptions.colorLight = backgroundColorInput.value;
     qrOptions.moduleShape = moduleShapeSelect.value;
-    qrOptions.size = parseInt(qrSizeSelect.value, 10);
+    qrOptions.size = getConfiguredExportSize();
     qrOptions.transparentBackground = transparentBackgroundInput.checked;
   }
 
@@ -148,20 +158,24 @@ document.addEventListener("DOMContentLoaded", function() {
   }
 
   function updatePreviewSize() {
-    var containerTop = qrcodeContainer.getBoundingClientRect().top;
+    var rootStyles = window.getComputedStyle(document.body);
     var bodyStyles = window.getComputedStyle(document.body);
     var viewportWidth = window.innerWidth;
     var viewportHeight = window.innerHeight;
     var availableWidth = Math.min(qrcodeContainer.parentElement.clientWidth, viewportWidth - 24);
-    var reservedHeight = downloadActions.offsetHeight + qrMeta.offsetHeight + divider.offsetHeight + 40;
-    var availableHeight = viewportHeight - containerTop - reservedHeight - (parseFloat(bodyStyles.paddingBottom) || 0);
-    var previewSize = Math.min(availableWidth, availableHeight, qrOptions.size);
+    var verticalPadding = (parseFloat(rootStyles.marginTop) || 0) +
+      (parseFloat(rootStyles.marginBottom) || 0) +
+      (parseFloat(bodyStyles.paddingTop) || 0) +
+      (parseFloat(bodyStyles.paddingBottom) || 0);
+    var nonQrHeight = document.body.scrollHeight - qrcodeContainer.offsetHeight;
+    var availableHeight = viewportHeight - nonQrHeight - verticalPadding;
+    var previewSize = Math.min(availableWidth, availableHeight);
 
     if (!isFinite(previewSize) || previewSize <= 0) {
-      previewSize = Math.min(availableWidth, qrOptions.size);
+      previewSize = availableWidth;
     }
 
-    qrcodeContainer.style.width = Math.max(140, previewSize) + 'px';
+    qrcodeContainer.style.width = Math.max(96, previewSize) + 'px';
   }
 
   function buildQRCodeData(text, correctLevel) {
@@ -169,8 +183,8 @@ document.addEventListener("DOMContentLoaded", function() {
     var qrCode = new QRCode(qrMeasureContainer, {
       text: text,
       correctLevel: QRCode.CorrectLevel[correctLevel],
-      width: qrOptions.size,
-      height: qrOptions.size,
+      width: getPreviewTargetSize(),
+      height: getPreviewTargetSize(),
       colorDark: qrOptions.colorDark,
       colorLight: qrOptions.colorLight,
       useSVG: true
@@ -223,6 +237,7 @@ document.addEventListener("DOMContentLoaded", function() {
     }
     
     var qrData = buildQRCodeData(text, correctionLevel);
+    currentQrData = qrData;
     renderCustomSvg(qrData);
     updateQRInfo(qrData);
   }
@@ -268,33 +283,62 @@ document.addEventListener("DOMContentLoaded", function() {
   }
 
   function renderPngCanvas(callback) {
-    var svgString = getSerializedSvg();
-    if (!svgString) {
+    var canvas;
+    var context;
+    var moduleCount;
+    var exportSize;
+    var moduleSize;
+    var x;
+    var y;
+
+    if (!currentQrData) {
       return;
     }
 
-    var image = new Image();
-    var blob = new Blob([svgString], {type: 'image/svg+xml'});
-    var url = URL.createObjectURL(blob);
+    moduleCount = currentQrData.getModuleCount();
+    exportSize = Math.max(qrOptions.size, moduleCount);
+    moduleSize = Math.max(1, Math.floor(exportSize / moduleCount));
+    canvas = document.createElement('canvas');
+    context = canvas.getContext('2d');
 
-    image.onload = function() {
-      var canvas = document.createElement('canvas');
-      var context = canvas.getContext('2d');
+    canvas.width = moduleCount * moduleSize;
+    canvas.height = moduleCount * moduleSize;
+    context.imageSmoothingEnabled = false;
 
-      canvas.width = qrOptions.size;
-      canvas.height = qrOptions.size;
+    if (!qrOptions.transparentBackground) {
+      context.fillStyle = qrOptions.colorLight;
+      context.fillRect(0, 0, canvas.width, canvas.height);
+    }
 
-      if (!qrOptions.transparentBackground) {
-        context.fillStyle = qrOptions.colorLight;
-        context.fillRect(0, 0, canvas.width, canvas.height);
+    context.fillStyle = qrOptions.colorDark;
+
+    if (qrOptions.moduleShape === 'circle') {
+      for (y = 0; y < moduleCount; y++) {
+        for (x = 0; x < moduleCount; x++) {
+          if (currentQrData.isDark(y, x)) {
+            context.beginPath();
+            context.arc(
+              (x * moduleSize) + (moduleSize / 2),
+              (y * moduleSize) + (moduleSize / 2),
+              moduleSize * 0.45,
+              0,
+              Math.PI * 2
+            );
+            context.fill();
+          }
+        }
       }
+    } else {
+      for (y = 0; y < moduleCount; y++) {
+        for (x = 0; x < moduleCount; x++) {
+          if (currentQrData.isDark(y, x)) {
+            context.fillRect(x * moduleSize, y * moduleSize, moduleSize, moduleSize);
+          }
+        }
+      }
+    }
 
-      context.drawImage(image, 0, 0, canvas.width, canvas.height);
-      URL.revokeObjectURL(url);
-      callback(canvas);
-    };
-
-    image.src = url;
+    callback(canvas);
   }
 
   function copyPng() {

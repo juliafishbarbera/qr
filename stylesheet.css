@@ -189,6 +189,16 @@ body.dark-mode input[type="color"] {
   overflow-wrap: anywhere;
 }
 
+.contact-note {
+  margin: 20px 0 0;
+  color: var(--text-color);
+  font-size: 14px;
+}
+
+.contact-note a {
+  color: var(--title-color);
+}
+
 #resetAdvanced[hidden] {
   display: none;
 }
